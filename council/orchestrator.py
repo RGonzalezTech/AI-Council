@@ -11,6 +11,7 @@ State is checkpointed after every meaningful mutation for crash recovery.
 from __future__ import annotations
 
 import logging
+import random
 
 from rich.console import Console
 
@@ -126,7 +127,11 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
         state.objection_queue.clear()
         first_objection: Objection | None = None
 
-        for expert in state.council:
+        # Shuffle council members to vary the review order in each round
+        reviewers = list(state.council)
+        random.shuffle(reviewers)
+
+        for expert in reviewers:
             state.domain_states[expert.role].status = "reviewing"
             display.log_event(expert.role, "Reviewing proposal...")
 
