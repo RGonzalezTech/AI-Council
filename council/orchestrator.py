@@ -122,8 +122,9 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
             f"Starting review round {state.turn_count}/{state.max_turns}...",
         )
 
-        # ── Review round ─────────────────────────────────────
+        # ── Review round — stop at first objection ────────────
         state.objection_queue.clear()
+        first_objection: Objection | None = None
 
         for expert in state.council:
             state.domain_states[expert.role].status = "reviewing"
@@ -151,12 +152,15 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
                 if len(text) > 80:
                     text = text[:77] + "..."
                 display.log_event(expert.role, f"🔴 Objected: {text}", "objecting")
+                first_objection = objection
+                # ── Resolve immediately — no need to poll the rest ──
+                break
 
         save_state(state)
         display.show_status_board(state)
 
         # ── Check for consensus ──────────────────────────────
-        if not state.objection_queue:
+        if first_objection is None:
             state.global_status = "approved"
             save_state(state)
             display.log_event("Moderator", "🎉 All experts approve! Consensus reached.", "success")
@@ -164,17 +168,16 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
 
         display.log_event(
             "Moderator",
-            f"{len(state.objection_queue)} objection(s) raised. Resolving first...",
+            "Objection raised — resolving immediately...",
         )
 
-        # ── Resolve first objection ──────────────────────────
-        objection = state.objection_queue[0]
-        objection.status = "in_resolution"
+        # ── Resolve the objection ────────────────────────────
+        first_objection.status = "in_resolution"
         save_state(state)
 
-        state = _resolve_objection(state, objection, con)
+        state = _resolve_objection(state, first_objection, con)
 
-        # ── Clear remaining queue & reset all statuses ───────
+        # ── Clear queue & reset all statuses for next round ──
         state.objection_queue.clear()
         for role in state.domain_states:
             state.domain_states[role].status = "review_pending"
