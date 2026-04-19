@@ -105,8 +105,8 @@ SUPPORTED_EXTENSIONS: set[str] = {
     ".gdscript", ".gd",
 }
 
-MAX_FILE_SIZE: int = 50 * 1024       # 50 KB per file
-MAX_TOTAL_SIZE: int = 200 * 1024     # 200 KB total
+MAX_FILE_SIZE: int = 250 * 1024       # 250 KB per file
+MAX_TOTAL_SIZE: int = 1000 * 1024     # 1 MB total
 
 
 class FileReference(BaseModel):
