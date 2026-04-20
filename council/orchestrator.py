@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import random
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 
 from rich.console import Console
 
@@ -54,31 +55,50 @@ def _run_drafting_phase(state: CouncilState, con: Console) -> CouncilState:
     state.global_status = "drafting"
     save_state(state)
 
-    # Collect perspectives (skip already-collected for crash recovery)
+    # Collect perspectives — skip already-collected ones for crash recovery
     collected_roles = {p.expert_role for p in state.initial_perspectives}
+    pending = [e for e in state.council if e.role not in collected_roles]
 
+    # Log any already-cached roles immediately
     for expert in state.council:
         if expert.role in collected_roles:
             display.log_event(expert.role, "Perspective already collected ✓", "dim")
-            continue
 
-        display.log_event("Moderator", f"Requesting perspective from {expert.role}...")
-        with con.status(f"[bold magenta]{expert.role} is thinking...[/]"):
-            resp = llm.expert_perspective(
-                expert=expert,
-                premise=state.original_premise,
-                context_summary=state.context_summary,
-                model=state.model,
-            )
+    if pending:
+        display.log_event("Moderator", f"Gathering {len(pending)} perspectives in parallel...")
+        labels = [e.role for e in pending]
 
-        state.initial_perspectives.append(InitialPerspective(
-            expert_role=expert.role,
-            perspective=resp.perspective,
-            key_concerns=resp.key_concerns,
-            suggested_approach=resp.suggested_approach,
-        ))
-        display.log_event(expert.role, "📝 Perspective submitted")
-        save_state(state)
+        with ThreadPoolExecutor(max_workers=len(pending)) as executor:
+            future_to_expert: dict[Future, object] = {
+                executor.submit(
+                    llm.expert_perspective,
+                    expert=expert,
+                    premise=state.original_premise,
+                    context_summary=state.context_summary,
+                    model=state.model,
+                ): expert
+                for expert in pending
+            }
+            futures = list(future_to_expert.keys())
+
+            with display.parallel_spinners(
+                labels=labels,
+                futures=futures,
+                title="Gathering Expert Perspectives",
+            ):
+                for fut in as_completed(futures):
+                    expert = future_to_expert[fut]
+                    resp = fut.result()  # re-raises any LLM exception
+                    state.initial_perspectives.append(
+                        InitialPerspective(
+                            expert_role=expert.role,
+                            perspective=resp.perspective,
+                            key_concerns=resp.key_concerns,
+                            suggested_approach=resp.suggested_approach,
+                        )
+                    )
+                    display.log_event(expert.role, "📝 Perspective submitted")
+                    save_state(state)
 
     # Compile first draft
     display.log_event("Moderator", "✍️  Compiling all perspectives into Draft v1...")
@@ -226,25 +246,36 @@ def _resolve_objection(
     objection.consulted_experts = relevant
     display.log_event("Moderator", f"Consulting: {', '.join(relevant)}")
 
-    # ── Collect solutions from relevant experts ──────────────
-    for role in relevant:
-        expert = next(e for e in state.council if e.role == role)
-        display.log_event(role, "Working on a solution...")
+    # ── Collect solutions from relevant experts (in parallel) ─
+    display.log_event("Moderator", f"Collecting solutions from: {', '.join(relevant)}")
 
-        with con.status(f"[bold magenta]{role} is proposing a solution...[/]"):
-            resp = llm.expert_solution(
-                expert=expert,
+    with ThreadPoolExecutor(max_workers=len(relevant)) as executor:
+        future_to_role: dict[Future, str] = {
+            executor.submit(
+                llm.expert_solution,
+                expert=next(e for e in state.council if e.role == role),
                 objection=objection,
                 state=state,
                 model=state.model,
-            )
+            ): role
+            for role in relevant
+        }
+        futures = list(future_to_role.keys())
 
-        objection.proposed_solutions.append(ProposedSolution(
-            expert_role=role,
-            solution=resp.solution,
-        ))
-        display.log_event(role, "💡 Solution proposed")
-        save_state(state)
+        with display.parallel_spinners(
+            labels=relevant,
+            futures=futures,
+            title="Proposing Solutions",
+        ):
+            for fut in as_completed(futures):
+                role = future_to_role[fut]
+                resp = fut.result()  # re-raises any LLM exception
+                objection.proposed_solutions.append(ProposedSolution(
+                    expert_role=role,
+                    solution=resp.solution,
+                ))
+                display.log_event(role, "💡 Solution proposed")
+                save_state(state)
 
     # ── Resolution back-and-forth ────────────────────────────
     objector_expert = next(e for e in state.council if e.role == objection.raised_by)

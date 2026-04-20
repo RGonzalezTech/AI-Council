@@ -7,11 +7,19 @@ live status boards, event logging with timestamps, and verdict panels.
 
 from __future__ import annotations
 
+import itertools
 import logging
+import threading
+import time
+from collections.abc import Iterator
+from concurrent.futures import Future
+from contextlib import contextmanager
 from datetime import datetime
+from typing import Any
 
 from rich import box
 from rich.console import Console
+from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
@@ -129,6 +137,103 @@ def log_event(role: str, message: str, style: str = "") -> None:
         f"  [dim]{now}[/]  [{role_style}]{escape(role_display)}[/]  [{styled}]{escape(message)}[/]"
     )
     logger.info("[%s] %s", role, message)
+
+
+# ─── Parallel Spinners ───────────────────────────────────────
+
+
+_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+
+@contextmanager
+def parallel_spinners(
+    labels: list[str],
+    futures: list[Future[Any]],
+    title: str = "",
+    refresh_per_second: float = 10,
+) -> Iterator[None]:
+    """
+    Context manager that shows a live per-agent spinner table.
+
+    The Rich Live render loop runs in a background daemon thread so the
+    caller's main thread can freely iterate ``as_completed()`` without any
+    cooperative yield.  Each future marks itself done via a callback and the
+    corresponding row flips to a checkmark (✅) immediately.
+
+    Usage::
+
+        futures = [executor.submit(fn, arg) for arg in args]
+        with parallel_spinners(labels, futures, title="Gathering perspectives"):
+            for fut in as_completed(futures):
+                result = fut.result()   # re-raises any exception
+                # ... collect result ...
+    """
+    done: set[int] = set()
+    frame_cycle: Iterator[str] = itertools.cycle(_SPINNER_FRAMES)
+    lock = threading.Lock()
+
+    def _build_table(frame: str) -> Table:
+        table = Table(
+            box=box.SIMPLE,
+            show_header=False,
+            padding=(0, 1),
+            expand=False,
+        )
+        table.add_column("icon", width=3, justify="center")
+        table.add_column("label", style="bold magenta", min_width=22)
+        table.add_column("status", style="dim white")
+
+        for idx, label in enumerate(labels):
+            with lock:
+                is_done = idx in done
+            if is_done:
+                table.add_row("✅", label, "[dim green]done[/]")
+            else:
+                table.add_row(
+                    f"[bold magenta]{frame}[/]",
+                    label,
+                    "[dim]thinking...[/]",
+                )
+        return table
+
+    def _mark_done(idx: int) -> None:
+        with lock:
+            done.add(idx)
+
+    # Attach a callback to each future so its row flips immediately on completion
+    for i, fut in enumerate(futures):
+        fut.add_done_callback(lambda _f, _i=i: _mark_done(_i))
+
+    panel_title = f"[bold bright_cyan]{escape(title)}[/]" if title else ""
+    stop_event = threading.Event()
+
+    def _render_loop() -> None:
+        with Live(
+            console=console,
+            refresh_per_second=refresh_per_second,
+            transient=True,
+        ) as live:
+            while not stop_event.is_set():
+                frame = next(frame_cycle)
+                renderable = _build_table(frame)
+                if panel_title:
+                    renderable = Panel(renderable, title=panel_title, border_style="dim cyan")
+                live.update(renderable)
+                time.sleep(1 / refresh_per_second)
+
+            # Final render: all checkmarks before Live tears down
+            renderable = _build_table("✅")
+            if panel_title:
+                renderable = Panel(renderable, title=panel_title, border_style="dim cyan")
+            live.update(renderable)
+
+    render_thread = threading.Thread(target=_render_loop, daemon=True)
+    render_thread.start()
+    try:
+        yield
+    finally:
+        stop_event.set()
+        render_thread.join()
 
 
 # ─── Status Board ────────────────────────────────────────────
