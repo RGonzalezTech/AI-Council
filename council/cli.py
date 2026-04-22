@@ -135,7 +135,7 @@ def init(
     save_state(state)
 
     # ── Council CRUD ─────────────────────────────────────────
-    state.council = _council_crud(state.council)
+    state.council = _council_crud(state.council, premise, model)
     save_state(state)
 
     display.log_event("Moderator", f"Council locked: {len(state.council)} members")
@@ -371,7 +371,11 @@ def _load_files(paths: list[Path]) -> list[FileReference]:
     return refs
 
 
-def _council_crud(council: list[ExpertMember]) -> list[ExpertMember]:
+def _council_crud(
+    council: list[ExpertMember],
+    premise: str,
+    model: str,
+) -> list[ExpertMember]:
     """Interactive CRUD loop for editing the council composition."""
     while True:
         display.show_council_table(council)
@@ -446,22 +450,26 @@ def _council_crud(council: list[ExpertMember]) -> list[ExpertMember]:
             display.show_success(f"Removed: {removed.role}")
 
         elif action == "add":
-            role = inquirer.text(
-                message="Role title:",
+            intent = inquirer.text(
+                message="What kind of expert do you want? (e.g., 'a paranoid security expert'):",
             ).execute()
 
-            prompt = inquirer.text(
-                message="System prompt:",
-            ).execute()
-
-            if role.strip() and prompt.strip():
+            if intent.strip():
+                with con.status("[bold cyan]Generating member...[/]"):
+                    suggestion = llm.generate_vibe_member(
+                        intent=intent.strip(),
+                        premise=premise,
+                        current_council=council,
+                        model=model,
+                    )
+                
                 council.append(ExpertMember(
-                    role=role.strip(),
-                    system_prompt=prompt.strip(),
+                    role=suggestion.role,
+                    system_prompt=suggestion.system_prompt,
                 ))
-                display.show_success(f"Added: {role.strip()}")
+                display.show_success(f"Added: {suggestion.role}")
             else:
-                display.show_error("Role and prompt are required.")
+                display.show_error("Intent is required.")
 
     return council
 

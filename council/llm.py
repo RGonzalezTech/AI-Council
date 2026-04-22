@@ -20,6 +20,7 @@ from .llm_schemas import (
     ExpertVerdict,
     FirstDraftResponse,
     IntakeResponse,
+    ExpertSuggestion,
     PerspectiveResponse,
     ResolutionJudgment,
     SolutionResponse,
@@ -130,6 +131,35 @@ def generate_council(
             "Recommend exactly 5 council members."
         ),
         user=f"Idea: {premise}{context_block}",
+    )
+
+
+def generate_vibe_member(
+    intent: str,
+    premise: str,
+    current_council: list[ExpertMember],
+    model: str,
+) -> ExpertSuggestion:
+    """Generate a single council member based on a user's intent."""
+    council_block = ""
+    if current_council:
+        council_block = "\n\nCurrent Council Members:\n" + "\n".join(
+            f"- {m.role}" for m in current_council
+        )
+
+    return _call(
+        model=model,
+        response_model=ExpertSuggestion,
+        system=(
+            "You are an expert organizational strategist. The user is assembling "
+            "a council of domain experts to evaluate an idea. They want to add "
+            "a new member to the council based on a specific intent.\n\n"
+            "Your goal is to interpret the user's intent and generate a single, "
+            "highly specific council member that fulfills that intent. "
+            "Ensure the new role does not heavily overlap with existing members. "
+            "The system prompt should detail their personality, expertise, and priorities."
+        ),
+        user=f"Idea: {premise}{council_block}\n\nUser Intent for new member: {intent}",
     )
 
 
