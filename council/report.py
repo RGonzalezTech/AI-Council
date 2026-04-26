@@ -7,6 +7,9 @@ The Moderator writes a comprehensive multi-page report covering:
 - The final battle-tested proposal
 - The debate journey (objections, resolutions, decisions)
 - Statistics and outcomes
+
+The report is saved as sessions/<id>/final_report.md alongside all
+other session artifacts rather than in a separate reports/ directory.
 """
 
 from __future__ import annotations
@@ -16,10 +19,9 @@ from datetime import datetime
 from pathlib import Path
 
 from .models import CouncilState
+from .state import get_session_dir
 
 logger = logging.getLogger("council")
-
-REPORTS_DIR = Path("reports")
 
 
 def generate_report(state: CouncilState) -> str:
@@ -206,11 +208,11 @@ def generate_report(state: CouncilState) -> str:
 
 
 def save_report(state: CouncilState) -> Path:
-    """Generate and save the report to disk."""
+    """Generate and save the report inside the session directory."""
     report = generate_report(state)
 
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    report_path = REPORTS_DIR / f"{state.idea_id}.md"
+    session_dir = get_session_dir(state.idea_id)
+    report_path = session_dir / "final_report.md"
     report_path.write_text(report, encoding="utf-8")
 
     logger.info("Report saved → %s", report_path)
