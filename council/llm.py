@@ -14,6 +14,8 @@ import instructor
 import litellm
 from litellm import completion
 
+from .config import resolve_model
+
 from .llm_schemas import (
     ContextSummaryResponse,
     EvaluationResponse,
@@ -24,7 +26,6 @@ from .llm_schemas import (
     PerspectiveResponse,
     ResolutionJudgment,
     SolutionResponse,
-    SynthesisResponse,
     TriageResponse,
 )
 
@@ -41,8 +42,15 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 MAX_RETRIES = 3
 
 
-def _client() -> instructor.Instructor:
-    """Create an Instructor-patched LiteLLM client."""
+def _client(model: str = "") -> instructor.Instructor:
+    """Create an Instructor-patched LiteLLM client.
+
+    Gemini models don't support Mode.TOOLS reliably — they return empty
+    completion choices. Use Mode.JSON (native structured output) instead.
+    """
+    model = resolve_model(model)
+    if any(m in model.lower() for m in ["gemini", "deepseek", "openrouter"]):
+        return instructor.from_litellm(completion, mode=instructor.Mode.JSON)
     return instructor.from_litellm(completion)
 
 
@@ -60,7 +68,8 @@ def _call(
 
     Uses Instructor to guarantee the response conforms to response_model.
     """
-    client = _client()
+    model = resolve_model(model)
+    client = _client(model)
     logger.debug("LLM call → model=%s, schema=%s", model, response_model.__name__)
     result = client.chat.completions.create(
         model=model,
@@ -92,11 +101,14 @@ def summarize_files(
         model=model,
         response_model=ContextSummaryResponse,
         system=(
-            "You are a technical analyst. Read the provided reference materials "
+            "You are an expert analyst. Read the provided reference materials "
             "and produce a comprehensive but concise summary. Extract all "
-            "critical details — architecture decisions, constraints, APIs, "
-            "data models, dependencies — that would be needed to evaluate or "
-            "build upon this project. Discard boilerplate and focus on substance."
+            "critical details — key facts, decisions, constraints, relationships, "
+            "requirements, and context — that would be relevant to evaluating or "
+            "building upon whatever this material describes. "
+            "Discard boilerplate and focus on substance. "
+            "Do not assume the content is technical; adapt your analysis to the "
+            "domain and nature of the materials provided."
         ),
         user=f"Reference Materials:\n{file_block}",
     )
@@ -223,13 +235,20 @@ def compile_first_draft(
             "proposal that:\n"
             "1. Addresses the core idea with a clear, actionable plan\n"
             "2. Incorporates key insights from ALL expert perspectives\n"
-            "3. Resolves any obvious contradictions between expert opinions\n"
+            "3. Resolves any MINOR, non-controversial contradictions between expert opinions\n"
             "4. Identifies decisions that were made during synthesis\n\n"
+            "CRITICAL: For any SIGNIFICANT disagreement or conflict between expert "
+            "perspectives — especially where experts recommend fundamentally different "
+            "approaches — do NOT resolve it yourself. Instead, surface it as a "
+            "point_of_debate. These will be explicitly flagged in the proposal so the "
+            "council can debate and resolve them together.\n\n"
             "Write the proposal as a detailed, well-structured document with "
-            "clear sections and headers. This will be the document the council "
-            "debates, so make it thorough and specific enough to critique.\n\n"
-            "For each decision you make while synthesizing (e.g., choosing one "
-            "approach over another), add a concise entry to key_decisions."
+            "clear sections and headers. In sections where there is an unresolved "
+            "conflict, clearly annotate it with [OPEN DEBATE] so reviewers know "
+            "to focus their attention there.\n\n"
+            "For each decision you made while synthesizing, add a concise entry to "
+            "key_decisions. For each unresolved conflict you are surfacing, add a "
+            "concise description to points_of_debate."
         ),
         user=(
             f"Original Idea: {state.original_premise}"
@@ -340,64 +359,36 @@ def expert_solution(
     )
 
 
-# ─── Objection Resolution: Synthesis ────────────────────────
-
-
-def moderator_synthesize(
-    objection: Objection,
-    state: CouncilState,
-    model: str,
-) -> SynthesisResponse:
-    """Have the Moderator compile expert solutions into a unified brief."""
-    solutions_block = ""
-    for ps in objection.proposed_solutions:
-        solutions_block += f"\n  • {ps.expert_role}: {ps.solution}\n"
-
-    return _call(
-        model=model,
-        response_model=SynthesisResponse,
-        system=(
-            "You are the Moderator. You've collected proposed solutions from "
-            "domain experts to address an objection.\n\n"
-            "Compile these into a clear, unified recommendation. If solutions "
-            "conflict, choose the most robust approach and explain why. "
-            "Present this as a concise brief for the objecting expert to review."
-        ),
-        user=(
-            f"ORIGINAL OBJECTION from {objection.raised_by}: "
-            f"\"{objection.objection_text}\"\n\n"
-            f"PROPOSED SOLUTIONS:\n{solutions_block}\n\n"
-            f"CURRENT PROPOSAL:\n{state.current_proposal}"
-        ),
-    )
-
-
 # ─── Objection Resolution: Evaluation ───────────────────────
 
 
 def expert_evaluate(
     expert: ExpertMember,
     objection: Objection,
-    synthesis: SynthesisResponse,
+    concatenated_solutions: str,
     model: str,
 ) -> EvaluationResponse:
-    """Have the objecting expert evaluate the compiled solution."""
+    """Have the objecting expert evaluate all proposed solutions."""
     return _call(
         model=model,
         response_model=EvaluationResponse,
         system=(
             f"You are {expert.role}.\n\n{expert.system_prompt}\n\n"
-            "You raised an objection to the proposal. The council has worked "
-            "on a solution. Evaluate it honestly:\n"
-            "- Does it adequately address your concern?\n"
-            "- Are there remaining issues from YOUR domain perspective?\n"
-            "- Be fair but rigorous. Don't nitpick, but don't accept "
-            "half-measures either."
+            "You raised an objection to the proposal. The council has responded "
+            "with one or more proposed solutions from different experts.\n\n"
+            "Review ALL the proposals below and evaluate them from your domain perspective:\n"
+            "- If ANY proposal (or combination of elements across proposals) adequately "
+            "addresses your concern, set satisfied=True and provide an accepted_solution "
+            "containing the specific solution text you endorse — either verbatim from "
+            "one proposal or a concise synthesis of the best elements across them.\n"
+            "- If NONE of the proposals adequately address your concern, set "
+            "satisfied=False and clearly articulate your remaining_concerns so the "
+            "council can make another attempt.\n"
+            "Be fair but rigorous. Don't nitpick, but don't accept half-measures either."
         ),
         user=(
             f"YOUR ORIGINAL OBJECTION: \"{objection.objection_text}\"\n\n"
-            f"PROPOSED SOLUTION:\n{synthesis.compiled_solution}\n\n"
-            f"CHANGES SUMMARY: {synthesis.changes_summary}"
+            f"PROPOSED SOLUTIONS:\n{concatenated_solutions}"
         ),
     )
 
@@ -407,7 +398,7 @@ def expert_evaluate(
 
 def moderator_judge(
     objection: Objection,
-    synthesis: SynthesisResponse,
+    agreed_solution: str,
     state: CouncilState,
     model: str,
 ) -> ResolutionJudgment:
@@ -442,7 +433,7 @@ def moderator_judge(
         user=(
             f"OBJECTION from {objection.raised_by}: "
             f"\"{objection.objection_text}\"\n\n"
-            f"AGREED SOLUTION:\n{synthesis.compiled_solution}\n\n"
+            f"AGREED SOLUTION:\n{agreed_solution}\n\n"
             f"CURRENT PROPOSAL:\n{state.current_proposal}"
             f"{decision_log_block}"
         ),

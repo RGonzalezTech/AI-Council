@@ -75,7 +75,7 @@ def _run_drafting_phase(state: CouncilState, con: Console) -> CouncilState:
                     expert=expert,
                     premise=state.original_premise,
                     context_summary=state.context_summary,
-                    model=state.model,
+                    model=state.get_model(expert),
                 ): expert
                 for expert in pending
             }
@@ -108,6 +108,15 @@ def _run_drafting_phase(state: CouncilState, con: Console) -> CouncilState:
     state.current_proposal = draft.proposal
     state.decision_log.extend(draft.key_decisions)
     state.global_status = "debating"
+
+    # Log any open points of debate surfaced by the Moderator
+    if draft.points_of_debate:
+        display.log_event(
+            "Moderator",
+            f"⚠️  {len(draft.points_of_debate)} open point(s) of debate flagged for council:",
+        )
+        for point in draft.points_of_debate:
+            display.log_event("Moderator", f"  • {point}")
 
     # Initialize domain states for all experts
     for expert in state.council:
@@ -159,7 +168,7 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
                 verdict = llm.expert_review(
                     expert=expert,
                     state=state,
-                    model=state.model,
+                    model=state.get_model(expert),
                 )
 
             if verdict.approved:
@@ -256,7 +265,7 @@ def _resolve_objection(
                 expert=next(e for e in state.council if e.role == role),
                 objection=objection,
                 state=state,
-                model=state.model,
+                model=state.get_model(role),
             ): role
             for role in relevant
         }
@@ -284,32 +293,30 @@ def _resolve_objection(
     for attempt in range(state.max_resolution_turns):
         objection.resolution_turns = attempt + 1
 
-        # Moderator synthesizes
-        display.log_event("Moderator", "📋 Synthesizing solutions...")
-        with con.status("[bold cyan]Moderator synthesizing...[/]"):
-            synthesis = llm.moderator_synthesize(
-                objection=objection,
-                state=state,
-                model=state.model,
-            )
+        # Concatenate all proposed solutions into a readable string (no LLM needed)
+        concatenated_solutions = "\n\n".join(
+            f"--- {ps.expert_role} ---\n{ps.solution}"
+            for ps in objection.proposed_solutions
+        )
 
-        # Objector evaluates
+        # Objector evaluates the raw proposals directly
         display.log_event(objection.raised_by, "Evaluating proposed solutions...")
         with con.status(f"[bold magenta]{objection.raised_by} is evaluating...[/]"):
             evaluation = llm.expert_evaluate(
                 expert=objector_expert,
                 objection=objection,
-                synthesis=synthesis,
-                model=state.model,
+                concatenated_solutions=concatenated_solutions,
+                model=state.get_model(objector_expert),
             )
 
         if evaluation.satisfied:
+            agreed_solution = evaluation.accepted_solution or concatenated_solutions
             # Moderator finalizes
             display.log_event("Moderator", "Agreement reached! Updating proposal...")
             with con.status("[bold cyan]Moderator is updating the proposal...[/]"):
                 judgment = llm.moderator_judge(
                     objection=objection,
-                    synthesis=synthesis,
+                    agreed_solution=agreed_solution,
                     state=state,
                     model=state.model,
                 )

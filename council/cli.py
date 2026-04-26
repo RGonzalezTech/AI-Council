@@ -22,6 +22,7 @@ from InquirerPy import inquirer
 from rich.console import Console
 
 from . import display, llm
+from .config import DEFAULT_MODEL, MODELS, resolve_model
 from .models import (
     CouncilState,
     ExpertMember,
@@ -65,8 +66,8 @@ def init(
     ] = None,
     model: Annotated[
         str,
-        typer.Option("--model", "-m", help="LLM model to use (any LiteLLM model string)"),
-    ] = "gemini/gemini-2.5-pro",
+        typer.Option("--model", "-m", help="LLM model to use (alias or LiteLLM string)"),
+    ] = DEFAULT_MODEL,
     max_turns: Annotated[
         int,
         typer.Option("--max-turns", help="Maximum debate rounds before stalemate"),
@@ -85,7 +86,7 @@ def init(
     # ── Create initial state ─────────────────────────────────
     state = CouncilState(
         original_premise=premise,
-        model=model,
+        model=resolve_model(model),
         max_turns=max_turns,
     )
 
@@ -129,7 +130,11 @@ def init(
         )
 
     state.council = [
-        ExpertMember(role=s.role, system_prompt=s.system_prompt)
+        ExpertMember(
+            role=s.role,
+            system_prompt=s.system_prompt,
+            model=state.model,
+        )
         for s in intake.council
     ]
     save_state(state)
@@ -426,9 +431,22 @@ def _council_crud(
                 default=member.system_prompt,
             ).execute()
 
+            con.print(f"\n  [dim]Current model override:[/]")
+            con.print(f"  {member.model or 'None (uses session default)'}\n")
+            model_choices = [{"name": "Session Default", "value": ""}]
+            for name, val in MODELS.items():
+                model_choices.append({"name": name.title(), "value": val})
+
+            new_model = inquirer.select(
+                message="New model override:",
+                choices=model_choices,
+                default=member.model or "",
+            ).execute()
+
             council[idx] = ExpertMember(
                 role=new_role.strip() or member.role,
                 system_prompt=new_prompt.strip() or member.system_prompt,
+                model=new_model or None,
             )
             display.show_success(f"Updated: {council[idx].role}")
 
@@ -466,6 +484,7 @@ def _council_crud(
                 council.append(ExpertMember(
                     role=suggestion.role,
                     system_prompt=suggestion.system_prompt,
+                    model=model,
                 ))
                 display.show_success(f"Added: {suggestion.role}")
             else:

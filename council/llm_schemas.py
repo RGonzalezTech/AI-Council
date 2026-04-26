@@ -68,6 +68,13 @@ class FirstDraftResponse(BaseModel):
     key_decisions: list[str] = Field(
         description="Decisions made while synthesizing (for the decision log)"
     )
+    points_of_debate: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Unresolved contradictions or conflicts between expert perspectives "
+            "that should be surfaced for the council to debate, not decided by the Moderator"
+        ),
+    )
 
 
 # ─── Debate Phase (Review) ──────────────────────────────────
@@ -108,24 +115,21 @@ class SolutionResponse(BaseModel):
     )
 
 
-class SynthesisResponse(BaseModel):
-    """The Moderator's compiled solution brief for the objector."""
-
-    compiled_solution: str = Field(
-        description="Unified recommendation synthesized from all expert solutions"
-    )
-    changes_summary: str = Field(
-        description="Summary of what would change in the proposal"
-    )
-
-
 class EvaluationResponse(BaseModel):
-    """The objecting expert's evaluation of the proposed solution."""
+    """The objecting expert's evaluation of the concatenated proposed solutions."""
 
     satisfied: bool = Field(
-        description="True if the objection is adequately addressed"
+        description="True if at least one proposed solution adequately addresses the objection"
     )
     reasoning: str = Field(description="Why they are or aren't satisfied")
+    accepted_solution: str | None = Field(
+        default=None,
+        description=(
+            "If satisfied, the specific solution text to incorporate — either verbatim from "
+            "one of the proposals or a brief synthesis of the best elements across them. "
+            "Required when satisfied=True."
+        ),
+    )
     remaining_concerns: str | None = Field(
         default=None,
         description="If not satisfied, what specifically is still wrong",

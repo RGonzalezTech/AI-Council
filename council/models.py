@@ -13,6 +13,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .config import DEFAULT_MODEL
+
 
 # ─── Council Members ────────────────────────────────────────
 
@@ -22,7 +24,7 @@ class ExpertMember(BaseModel):
 
     role: str = Field(description="Concise title, e.g. 'Security Architect'")
     system_prompt: str = Field(description="Personality, expertise, and priorities")
-
+    model: str | None = None  # Optional model override for this expert
 
 # ─── Domain State ────────────────────────────────────────────
 
@@ -168,4 +170,11 @@ class CouncilState(BaseModel):
     max_resolution_turns: int = 5
 
     # LLM config
-    model: str = "gemini/gemini-2.5-pro"
+    model: str = DEFAULT_MODEL
+
+    def get_model(self, expert: ExpertMember | str) -> str:
+        """Get the specific model for an expert, falling back to the session default."""
+        if isinstance(expert, str):
+            found = next((e for e in self.council if e.role == expert), None)
+            return (found.model if found and found.model else self.model)
+        return expert.model or self.model
