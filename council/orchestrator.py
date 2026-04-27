@@ -11,7 +11,6 @@ State is checkpointed after every meaningful mutation for crash recovery.
 from __future__ import annotations
 
 import logging
-import random
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 
 from rich.console import Console
@@ -21,6 +20,7 @@ from . import llm
 from .models import (
     CouncilState,
     DomainState,
+    ExpertMember,
     InitialPerspective,
     Objection,
     ProposedSolution,
@@ -152,25 +152,38 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
             f"Starting review round {state.turn_count}/{state.max_turns}...",
         )
 
-        # ── Review round — stop at first objection ────────────
+        # ── Parallel review round ─────────────────────────────
         state.objection_queue.clear()
-        first_objection: Objection | None = None
-
-        # Shuffle council members to vary the review order in each round
         reviewers = list(state.council)
-        random.shuffle(reviewers)
 
         for expert in reviewers:
             state.domain_states[expert.role].status = "reviewing"
-            display.log_event(expert.role, "Reviewing proposal...")
 
-            with con.status(f"[bold magenta]{expert.role} is reviewing...[/]"):
-                verdict = llm.expert_review(
+        verdicts: dict[str, object] = {}
+
+        with ThreadPoolExecutor(max_workers=len(reviewers)) as executor:
+            future_to_expert: dict[Future, ExpertMember] = {
+                executor.submit(
+                    llm.expert_review,
                     expert=expert,
                     state=state,
                     model=state.get_model(expert),
-                )
+                ): expert
+                for expert in reviewers
+            }
+            futures = list(future_to_expert.keys())
 
+            with display.parallel_spinners(
+                labels=[e.role for e in reviewers],
+                futures=futures,
+                title=f"Review Round {state.turn_count}",
+            ):
+                for fut in as_completed(futures):
+                    expert = future_to_expert[fut]
+                    verdicts[expert.role] = fut.result()
+
+        for expert in reviewers:
+            verdict = verdicts[expert.role]
             if verdict.approved:
                 state.domain_states[expert.role].status = "approved"
                 display.log_event(expert.role, "✅ Approved", "approved")
@@ -186,30 +199,28 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
                 if len(text) > 80:
                     text = text[:77] + "..."
                 display.log_event(expert.role, f"🔴 Objected: {text}", "objecting")
-                first_objection = objection
-                # ── Resolve immediately — no need to poll the rest ──
-                break
 
         save_state(state)
         display.show_status_board(state)
 
         # ── Check for consensus ──────────────────────────────
-        if first_objection is None:
+        if not state.objection_queue:
             state.global_status = "approved"
             save_state(state)
             display.log_event("Moderator", "🎉 All experts approve! Consensus reached.", "success")
             break
 
-        display.log_event(
-            "Moderator",
-            "Objection raised — resolving immediately...",
-        )
+        # ── Select which objection to resolve ────────────────
+        if len(state.objection_queue) == 1:
+            selected = state.objection_queue[0]
+        else:
+            selected = _vote_on_objections(state, list(state.objection_queue), con)
 
-        # ── Resolve the objection ────────────────────────────
-        first_objection.status = "in_resolution"
+        display.log_event("Moderator", f"Resolving objection from {selected.raised_by}...")
+        selected.status = "in_resolution"
         save_state(state)
 
-        state = _resolve_objection(state, first_objection, con)
+        state = _resolve_objection(state, selected, con)
 
         # ── Clear queue & reset all statuses for next round ──
         state.objection_queue.clear()
@@ -219,6 +230,64 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
         save_state(state)
 
     return state
+
+
+def _vote_on_objections(
+    state: CouncilState,
+    objections: list[Objection],
+    con: Console,
+) -> Objection:
+    """Have all experts vote on which objection to prioritize; return the winner."""
+    display.log_event(
+        "Moderator",
+        f"🗳️  {len(objections)} objections raised — initiating vote...",
+    )
+
+    voters = list(state.council)
+    vote_tallies: dict[str, int] = {obj.id: 0 for obj in objections}
+    expert_votes: dict[str, object] = {}
+
+    with ThreadPoolExecutor(max_workers=len(voters)) as executor:
+        future_to_voter: dict[Future, ExpertMember] = {
+            executor.submit(
+                llm.expert_vote,
+                expert=expert,
+                objections=objections,
+                state=state,
+                model=state.get_model(expert),
+            ): expert
+            for expert in voters
+        }
+        futures = list(future_to_voter.keys())
+
+        with display.parallel_spinners(
+            labels=[e.role for e in voters],
+            futures=futures,
+            title="Voting on Objections",
+        ):
+            for fut in as_completed(futures):
+                expert = future_to_voter[fut]
+                expert_votes[expert.role] = fut.result()
+
+    for expert in voters:
+        vote_resp = expert_votes[expert.role]
+        valid = [v for v in vote_resp.votes if v.objection_id in vote_tallies and v.points > 0]
+        total = sum(v.points for v in valid)
+        if total > 0:
+            for v in valid:
+                vote_tallies[v.objection_id] += round(v.points * 100 / total)
+        display.log_event(expert.role, "🗳️  Vote cast")
+
+    winner_id = max(vote_tallies, key=lambda k: vote_tallies[k])
+    winner = next(obj for obj in objections if obj.id == winner_id)
+
+    display.show_vote_results(objections, vote_tallies, winner)
+    display.log_event(
+        "Moderator",
+        f"Selected: {winner.raised_by}'s objection ({vote_tallies[winner_id]} pts)",
+    )
+
+    return winner
 
 
 # ─── Objection Resolution ───────────────────────────────────

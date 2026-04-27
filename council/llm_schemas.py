@@ -146,3 +146,22 @@ class ResolutionJudgment(BaseModel):
         description="Concise rule established, e.g. 'Auth: Must use mTLS (per Security)'"
     )
     reasoning: str = Field(description="Why this resolution was adopted")
+
+
+# ─── Debate Phase (Voting) ───────────────────────────────────
+
+
+class ObjectionVote(BaseModel):
+    """A single point allocation in an expert's vote."""
+
+    objection_id: str = Field(description="ID of the objection receiving these points")
+    points: int = Field(description="Points allocated to this objection (must be positive)")
+
+
+class VoteResponse(BaseModel):
+    """An expert's 100-point allocation vote across raised objections."""
+
+    votes: list[ObjectionVote] = Field(
+        description="Point allocations across objections. Must be positive integers summing to 100."
+    )
+    reasoning: str = Field(description="Why these objections were prioritized this way")

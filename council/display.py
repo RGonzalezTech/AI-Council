@@ -275,6 +275,43 @@ def show_status_board(state: CouncilState) -> None:
     console.print(Panel(table, title=title, border_style="cyan"))
 
 
+# ─── Vote Results ────────────────────────────────────────────
+
+
+def show_vote_results(
+    objections: list[Objection],
+    vote_tallies: dict[str, int],
+    winner: Objection,
+) -> None:
+    """Display the vote tally for objection prioritization."""
+    table = Table(
+        box=box.ROUNDED,
+        border_style="cyan",
+        show_lines=True,
+        padding=(0, 1),
+    )
+    table.add_column("Raised By", style="bold magenta", min_width=20)
+    table.add_column("Objection", min_width=50)
+    table.add_column("Points", style="bold", justify="right", min_width=8)
+
+    for obj in sorted(objections, key=lambda o: vote_tallies.get(o.id, 0), reverse=True):
+        points = vote_tallies.get(obj.id, 0)
+        text = obj.objection_text
+        if len(text) > 60:
+            text = text[:57] + "..."
+        is_winner = obj.id == winner.id
+        prefix = "🏆 " if is_winner else "   "
+        row_style = "bold green" if is_winner else ""
+        table.add_row(
+            f"{prefix}{escape(obj.raised_by)}",
+            escape(text),
+            str(points),
+            style=row_style,
+        )
+
+    console.print(Panel(table, title="[bold bright_cyan]🗳️  Objection Vote Results[/]", border_style="cyan"))
+
+
 # ─── Proposal Display ───────────────────────────────────────
 
 

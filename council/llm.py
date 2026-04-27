@@ -27,6 +27,7 @@ from .llm_schemas import (
     ResolutionJudgment,
     SolutionResponse,
     TriageResponse,
+    VoteResponse,
 )
 
 if TYPE_CHECKING:
@@ -294,6 +295,41 @@ def expert_review(
         user=(
             f"CURRENT PROPOSAL:\n{state.current_proposal}"
             f"{decision_log_block}"
+        ),
+    )
+
+
+# ─── Debate Phase: Expert Vote ───────────────────────────────
+
+
+def expert_vote(
+    expert: ExpertMember,
+    objections: list[Objection],
+    state: CouncilState,
+    model: str,
+) -> VoteResponse:
+    """Have an expert allocate 100 points across objections to prioritize discussion."""
+    objections_block = "\n\n".join(
+        f"ID: {obj.id}\nRaised by: {obj.raised_by}\nObjection: {obj.objection_text}"
+        for obj in objections
+    )
+
+    return _call(
+        model=model,
+        response_model=VoteResponse,
+        system=(
+            f"You are {expert.role}.\n\n{expert.system_prompt}\n\n"
+            "Multiple objections have been raised against the current proposal. "
+            "The council will resolve one objection this round, so you must vote "
+            "on which should be discussed first.\n\n"
+            "You have 100 points to allocate across the listed objections. "
+            "Concentrate points on objections you consider most urgent or impactful "
+            "from your domain's perspective. You may put all 100 on one objection "
+            "or spread them. All allocations must be positive integers summing to 100."
+        ),
+        user=(
+            f"CURRENT PROPOSAL:\n{state.current_proposal}\n\n"
+            f"OBJECTIONS (vote on these):\n{objections_block}"
         ),
     )
 
