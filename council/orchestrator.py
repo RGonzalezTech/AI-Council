@@ -339,37 +339,6 @@ def _resolve_objection(
     objection.consulted_experts = relevant
     display.log_event("Moderator", f"Consulting: {', '.join(relevant)}")
 
-    # ── Collect solutions from relevant experts (in parallel) ─
-    display.log_event("Moderator", f"Collecting solutions from: {', '.join(relevant)}")
-
-    with ThreadPoolExecutor(max_workers=len(relevant)) as executor:
-        future_to_role: dict[Future, str] = {
-            executor.submit(
-                llm.expert_solution,
-                expert=next(e for e in state.council if e.role == role),
-                objection=objection,
-                state=state,
-                model=state.get_model(role),
-            ): role
-            for role in relevant
-        }
-        futures = list(future_to_role.keys())
-
-        with display.parallel_spinners(
-            labels=relevant,
-            futures=futures,
-            title="Proposing Solutions",
-        ):
-            for fut in as_completed(futures):
-                role = future_to_role[fut]
-                resp = fut.result()  # re-raises any LLM exception
-                objection.proposed_solutions.append(ProposedSolution(
-                    expert_role=role,
-                    solution=resp.solution,
-                ))
-                display.log_event(role, "💡 Solution proposed")
-                save_state(state)
-
     # ── Resolution back-and-forth ────────────────────────────
     objector_expert = next(e for e in state.council if e.role == objection.raised_by)
     resolved = False
@@ -377,10 +346,52 @@ def _resolve_objection(
     for attempt in range(state.max_resolution_turns):
         objection.resolution_turns = attempt + 1
 
-        # Concatenate all proposed solutions into a readable string (no LLM needed)
+        # ── Collect solutions from relevant experts (in parallel) ─
+        if attempt == 0:
+            display.log_event("Moderator", f"Collecting solutions from: {', '.join(relevant)}")
+            title = "Proposing Solutions"
+        else:
+            display.log_event("Moderator", f"Collecting revised solutions from: {', '.join(relevant)}")
+            title = f"Revising Solutions (Turn {attempt + 1})"
+
+        current_round_solutions: list[ProposedSolution] = []
+
+        with ThreadPoolExecutor(max_workers=len(relevant)) as executor:
+            future_to_role: dict[Future, str] = {
+                executor.submit(
+                    llm.expert_solution,
+                    expert=next(e for e in state.council if e.role == role),
+                    objection=objection,
+                    state=state,
+                    model=state.get_model(role),
+                ): role
+                for role in relevant
+            }
+            futures = list(future_to_role.keys())
+
+            with display.parallel_spinners(
+                labels=relevant,
+                futures=futures,
+                title=title,
+            ):
+                for fut in as_completed(futures):
+                    role = future_to_role[fut]
+                    resp = fut.result()  # re-raises any LLM exception
+                    ps = ProposedSolution(
+                        expert_role=role,
+                        solution=resp.solution,
+                    )
+                    current_round_solutions.append(ps)
+                    objection.proposed_solutions.append(ps)
+                    
+                    event_msg = "💡 Solution proposed" if attempt == 0 else "💡 Revised solution proposed"
+                    display.log_event(role, event_msg)
+                    save_state(state)
+
+        # Concatenate the current round's proposed solutions into a readable string
         concatenated_solutions = "\n\n".join(
             f"--- {ps.expert_role} ---\n{ps.solution}"
-            for ps in objection.proposed_solutions
+            for ps in current_round_solutions
         )
 
         # Objector evaluates the raw proposals directly
