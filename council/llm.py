@@ -24,6 +24,7 @@ from .llm_schemas import (
     IntakeResponse,
     ExpertSuggestion,
     PerspectiveResponse,
+    ProposalSummaryResponse,
     ResolutionJudgment,
     SolutionResponse,
     TriageResponse,
@@ -474,3 +475,31 @@ def moderator_judge(
             f"{decision_log_block}"
         ),
     )
+
+
+# ─── Report Phase ────────────────────────────────────────────
+
+
+def summarize_proposal(proposal: str, premise: str, model: str) -> str:
+    """
+    Generate a concise executive summary of the final proposal.
+
+    Returns 3-5 plain-prose sentences suitable for the top of the report.
+    This is a cheap call — one short completion, no retries needed for structure.
+    """
+    result = _call(
+        model=model,
+        response_model=ProposalSummaryResponse,
+        system=(
+            "You are a senior analyst writing the executive summary of a council report. "
+            "Summarize the final proposal in 3-5 sentences of plain prose. "
+            "Answer: what was decided, what approach was chosen, and what the key trade-offs are. "
+            "Do not use bullet points. Write for a reader who has not seen the full proposal. "
+            "Be direct and confident — lead with the conclusion."
+        ),
+        user=(
+            f"Original Question: {premise}\n\n"
+            f"Final Proposal:\n{proposal}"
+        ),
+    )
+    return result.executive_summary

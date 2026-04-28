@@ -165,3 +165,19 @@ class VoteResponse(BaseModel):
         description="Point allocations across objections. Must be positive integers summing to 100."
     )
     reasoning: str = Field(description="Why these objections were prioritized this way")
+
+
+# ─── Report Phase ────────────────────────────────────────────
+
+
+class ProposalSummaryResponse(BaseModel):
+    """A concise executive summary of the final council proposal."""
+
+    executive_summary: str = Field(
+        description=(
+            "A 3-5 sentence executive summary of the final proposal. "
+            "Should answer: what was decided, why, and what the key trade-offs or approach are. "
+            "Written for a reader who has not seen the full proposal. Plain prose, no bullet points."
+        )
+    )
+

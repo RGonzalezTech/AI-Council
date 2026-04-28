@@ -394,9 +394,13 @@ def show_verdict(state: CouncilState) -> None:
     console.print(Panel(body, border_style=border, padding=(1, 3)))
 
 
-def show_report_path(path: str) -> None:
-    """Display where the report was saved."""
-    console.print(f"\n  📄 Report saved to: [bold bright_cyan]{path}[/]\n")
+def show_report_path(paths: list[str]) -> None:
+    """Display where the reports were saved."""
+    labels = ["📄 Report", "📜 Debate Log"]
+    console.print()
+    for label, path in zip(labels, paths):
+        console.print(f"  {label}: [bold bright_cyan]{path}[/]")
+    console.print()
 
 
 # ─── Stalemate Prompt ────────────────────────────────────────

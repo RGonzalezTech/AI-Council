@@ -146,6 +146,13 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
             state.global_status = "stalemate"
             save_state(state)
             display.show_stalemate_info(state)
+            display.log_event("Moderator", "📝 Writing executive summary...")
+            state.proposal_executive_summary = llm.summarize_proposal(
+                proposal=state.current_proposal,
+                premise=state.original_premise,
+                model=state.model,
+            )
+            save_state(state)
             break
 
         display.log_event(
@@ -209,6 +216,13 @@ def _run_debate_phase(state: CouncilState, con: Console) -> CouncilState:
             state.global_status = "approved"
             save_state(state)
             display.log_event("Moderator", "🎉 All experts approve! Consensus reached.", "success")
+            display.log_event("Moderator", "📝 Writing executive summary...")
+            state.proposal_executive_summary = llm.summarize_proposal(
+                proposal=state.current_proposal,
+                premise=state.original_premise,
+                model=state.model,
+            )
+            save_state(state)
             break
 
         # ── Select which objection to resolve ────────────────

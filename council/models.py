@@ -151,6 +151,7 @@ class CouncilState(BaseModel):
 
     # Proposal (mutated throughout the debate)
     current_proposal: str = ""
+    proposal_executive_summary: str = ""  # LLM-generated 3-5 sentence summary
 
     # Objection tracking
     objection_queue: list[Objection] = Field(default_factory=list)

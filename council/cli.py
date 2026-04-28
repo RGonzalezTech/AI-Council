@@ -32,7 +32,7 @@ from .models import (
     SUPPORTED_EXTENSIONS,
 )
 from .orchestrator import run_council
-from .report import generate_report, save_report
+from .report import generate_executive_report, save_report
 from .state import (
     list_sessions,
     load_state,
@@ -319,8 +319,8 @@ def report(
         display.show_error(f"No session found with ID: {session_id}")
         raise typer.Exit(1)
 
-    path = save_report(state)
-    display.show_report_path(str(path))
+    report_path, log_path = save_report(state)
+    display.show_report_path([str(report_path), str(log_path)])
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -532,9 +532,9 @@ def _pick_session(message: str) -> str | None:
 
 
 def _finalize(state: CouncilState) -> None:
-    """Display verdict and save the report."""
+    """Display verdict and save the reports."""
     display.show_verdict(state)
 
     if state.global_status in ("approved", "rejected", "stalemate"):
-        path = save_report(state)
-        display.show_report_path(str(path))
+        report_path, log_path = save_report(state)
+        display.show_report_path([str(report_path), str(log_path)])
