@@ -7,7 +7,7 @@ that the model returns structured, validated data.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ─── Intake Phase ────────────────────────────────────────────
@@ -90,6 +90,17 @@ class ExpertVerdict(BaseModel):
     )
     reasoning: str = Field(description="Brief explanation of the decision")
 
+    @field_validator("approved", mode="before")
+    @classmethod
+    def coerce_bool(cls, v: object) -> bool:
+        """Accept string literals emitted by some LLMs (e.g. \"true\"/\"false\")."""
+        if isinstance(v, str):
+            if v.lower() == "true":
+                return True
+            if v.lower() == "false":
+                return False
+        return v
+
 
 # ─── Objection Resolution ───────────────────────────────────
 
@@ -134,6 +145,17 @@ class EvaluationResponse(BaseModel):
         default=None,
         description="If not satisfied, what specifically is still wrong",
     )
+
+    @field_validator("satisfied", mode="before")
+    @classmethod
+    def coerce_bool(cls, v: object) -> bool:
+        """Accept string literals emitted by some LLMs (e.g. \"true\"/\"false\")."""
+        if isinstance(v, str):
+            if v.lower() == "true":
+                return True
+            if v.lower() == "false":
+                return False
+        return v
 
 
 class ResolutionJudgment(BaseModel):
