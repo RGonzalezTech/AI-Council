@@ -11,6 +11,7 @@ State is checkpointed after every meaningful mutation for crash recovery.
 from __future__ import annotations
 
 import logging
+import difflib
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 
 from rich.console import Console
@@ -390,10 +391,22 @@ def _resolve_objection(
                     model=state.model,
                 )
 
+            # Compute and store diff
+            old_text = state.current_proposal
+            new_text = judgment.updated_proposal
+            diff_lines = difflib.unified_diff(
+                old_text.splitlines(keepends=True),
+                new_text.splitlines(keepends=True),
+                fromfile="Proposal (Before)",
+                tofile="Proposal (After)",
+            )
+            diff_text = "".join(diff_lines)
+
             objection.status = "resolved"
             objection.resolution_summary = judgment.decision_log_entry
+            objection.proposal_diff = diff_text
             objection.turn_resolved = state.turn_count
-            state.current_proposal = judgment.updated_proposal
+            state.current_proposal = new_text
             state.decision_log.append(judgment.decision_log_entry)
             state.resolved_objections.append(objection)
             resolved = True
@@ -403,6 +416,8 @@ def _resolve_objection(
                 f"✅ Resolved: {judgment.decision_log_entry}",
                 "success",
             )
+            if diff_text:
+                display.show_proposal_diff(diff_text)
             save_state(state)
             break
         else:

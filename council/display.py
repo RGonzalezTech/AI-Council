@@ -25,6 +25,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
+from rich.syntax import Syntax
 
 from .models import CouncilState, ExpertMember, Objection
 
@@ -321,6 +322,20 @@ def show_proposal(proposal: str, version: str = "v1") -> None:
         Panel(
             escape(proposal),
             title=f"[bold bright_cyan]Proposal {version}[/]",
+            border_style="dim cyan",
+            padding=(1, 2),
+        )
+    )
+
+
+def show_proposal_diff(diff_text: str) -> None:
+    """Display the diff of a proposal modification."""
+    console.print()
+    syntax = Syntax(diff_text, "diff", theme="ansi_dark", background_color="default")
+    console.print(
+        Panel(
+            syntax,
+            title="[bold bright_cyan]Proposal Changes[/]",
             border_style="dim cyan",
             padding=(1, 2),
         )

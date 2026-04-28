@@ -88,6 +88,7 @@ class Objection(BaseModel):
     proposed_solutions: list[ProposedSolution] = Field(default_factory=list)
     resolution_turns: int = 0
     resolution_summary: str | None = None
+    proposal_diff: str | None = None
     turn_raised: int = 0
     turn_resolved: int | None = None
 

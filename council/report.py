@@ -173,6 +173,15 @@ def generate_report(state: CouncilState) -> str:
                     f"",
                 ]
 
+            if getattr(obj, "proposal_diff", None):
+                lines += [
+                    f"**Proposal Changes:**",
+                    f"```diff",
+                    obj.proposal_diff.strip(),
+                    f"```",
+                    f"",
+                ]
+
             lines.append("")
 
     # ── Initial Perspectives ─────────────────────────────────
