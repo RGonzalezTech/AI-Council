@@ -3,7 +3,7 @@
 Multi-agent LLM debate CLI. Pitch an idea, get it torn apart and rebuilt by a panel of AI experts.
 
 ```
-council init "Build a self-hosted multiplayer game server"
+council init "What is the best architecture for a self-hosted multiplayer game server?"
 ```
 
 ## What it does
@@ -53,8 +53,8 @@ COUNCIL_MODEL=gemini-pro        # Google Gemini 2.5 Pro
 Or override per-run with `--model`:
 
 ```bash
-council init "build a thing" --model gemini-flash
-council init "build a thing" --model "openrouter/anthropic/claude-sonnet-4"
+council init "What is the best database indexing strategy for high-write loads?" --model gemini-flash
+council init "What is the best way to handle distributed transactions in microservices?" --model "openrouter/anthropic/claude-sonnet-4"
 ```
 
 The aliases (`deepseek`, `gemini-pro`, etc.) are defined in `council/config.py`. You can pass any raw [LiteLLM model string](https://docs.litellm.ai/docs/providers) directly — it'll work.
@@ -63,13 +63,13 @@ The aliases (`deepseek`, `gemini-pro`, etc.) are defined in `council/config.py`.
 
 ```bash
 # Start a new council session
-council init "your idea here"
+council init "What is the best way to implement token-based auth?"
 
 # With reference files (code, docs, specs)
-council init "refactor this service" --file service.py --file ARCHITECTURE.md
+council init "What is the best way to refactor this service?" --file service.py --file ARCHITECTURE.md
 
 # Use a specific model
-council init "design a rate limiter" --model gemini-pro
+council init "What is the best design for a sliding-window rate limiter?" --model gemini-pro
 
 # Resume a crashed/stalemate session
 council resume
