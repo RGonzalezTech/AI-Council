@@ -3,8 +3,14 @@ from typing import Dict
 
 # Centralized model registry
 # Format: {friendly_name: full_litellm_path}
+#
+# These are just convenience aliases. You can pass ANY LiteLLM model string
+# directly via --model or COUNCIL_MODEL and it will be used as-is.
+# See: https://docs.litellm.ai/docs/providers
 MODELS: Dict[str, str] = {
-    "deepseek": "openrouter/deepseek/deepseek-v3.2",
+    "deepseek": "openrouter/deepseek/deepseek-v4-pro",
+    "deepseek-flash": "openrouter/deepseek/deepseek-v4-flash",
+    "deepseek-pro": "openrouter/deepseek/deepseek-v4-pro",
     "gemini-flash": "google/gemini-2.5-flash",
     "gemini-pro": "google/gemini-2.5-pro",
 }
