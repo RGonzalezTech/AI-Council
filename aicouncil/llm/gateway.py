@@ -42,8 +42,11 @@ class InstructorGateway:
         from litellm import completion
 
         litellm.suppress_debug_info = True
-        logging.getLogger("LiteLLM").setLevel(logging.WARNING)
-        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+        logging.getLogger("httpx").setLevel(logging.ERROR)
+        # Instructor logs every failed attempt at ERROR; we surface the final
+        # exception ourselves, so suppress the duplicates.
+        logging.getLogger("instructor").setLevel(logging.CRITICAL)
 
         self._settings = settings
         self._tools_client = instructor.from_litellm(completion)
