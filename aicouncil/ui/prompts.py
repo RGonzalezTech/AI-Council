@@ -17,7 +17,7 @@ def edit_council(
     council: list[ExpertMember],
     *,
     generate_member: Callable[[str], ExpertMember],
-    model_aliases: dict[str, str],
+    default_model: str,
 ) -> list[ExpertMember]:
     """Interactive accept/edit/remove/add loop. Returns the final roster (≥1 member)."""
     while True:
@@ -40,7 +40,7 @@ def edit_council(
             ui.error(con, "Council must have at least one member.")
         elif action == "edit" and council:
             idx = _pick_member(council, "Select a member to edit:")
-            council[idx] = _edit_member(con, council[idx], model_aliases)
+            council[idx] = _edit_member(con, council[idx], default_model)
             ui.success(con, f"Updated: {council[idx].role}")
         elif action == "remove" and council:
             idx = _pick_member(council, "Select a member to remove:")
@@ -72,21 +72,21 @@ def _pick_member(council: list[ExpertMember], message: str) -> int:
     ).execute()
 
 
-def _edit_member(con: Console, m: ExpertMember, aliases: dict[str, str]) -> ExpertMember:
+def _edit_member(con: Console, m: ExpertMember, default_model: str) -> ExpertMember:
     role = inquirer.text(message="Role:", default=m.role).execute().strip() or m.role
     con.print(f"\n  [dim]Current system prompt:[/] {m.system_prompt}\n")
     prompt = (
         inquirer.text(message="System prompt:", default=m.system_prompt).execute().strip()
         or m.system_prompt
     )
-    choices = [{"name": "Session default", "value": ""}]
-    choices += [{"name": f"{k}  ({v})", "value": v} for k, v in aliases.items()]
-    choices += [{"name": "Other (type a LiteLLM model string)", "value": "__other__"}]
-    model = inquirer.select(
-        message="Model override:", choices=choices, default=m.model or ""
-    ).execute()
-    if model == "__other__":
-        model = inquirer.text(message="Model string:", default=m.model or "").execute().strip()
+    model = (
+        inquirer.text(
+            message=f"Model override (blank = session default, {default_model}):",
+            default=m.model or "",
+        )
+        .execute()
+        .strip()
+    )
     return ExpertMember(role=role, system_prompt=prompt, model=model or None)
 
 

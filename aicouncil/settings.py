@@ -15,15 +15,7 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_MODEL_ALIASES: dict[str, str] = {
-    "deepseek": "openrouter/deepseek/deepseek-v4-pro",
-    "deepseek-flash": "openrouter/deepseek/deepseek-v4-flash",
-    "deepseek-pro": "openrouter/deepseek/deepseek-v4-pro",
-    "gemini-flash": "gemini/gemini-2.5-flash",
-    "gemini-pro": "gemini/gemini-2.5-pro",
-    "claude-sonnet": "anthropic/claude-sonnet-4-5",
-    "gpt-5": "openai/gpt-5",
-}
+DEFAULT_MODEL = "openrouter/deepseek/deepseek-v4-pro"
 
 
 class Settings(BaseSettings):
@@ -38,21 +30,17 @@ class Settings(BaseSettings):
 
     # ── Models ───────────────────────────────────────────────
     model: str = Field(
-        default="deepseek",
-        description="Default model for experts (alias or LiteLLM string).",
+        default=DEFAULT_MODEL,
+        description="Default LiteLLM model string for experts.",
     )
     moderator_model: str | None = Field(
         default=None,
         description="Model for Moderator calls. Falls back to `model` when unset.",
     )
-    model_aliases: dict[str, str] = Field(
-        default_factory=lambda: dict(DEFAULT_MODEL_ALIASES),
-        description="Friendly-name → LiteLLM model string map.",
-    )
-    json_mode_prefixes: tuple[str, ...] = Field(
+    json_mode_providers: tuple[str, ...] = Field(
         default=("openrouter", "gemini", "deepseek", "google"),
         description=(
-            "Provider prefixes that need Instructor JSON mode instead of tool calling. "
+            "Providers that need Instructor JSON mode instead of tool calling. "
             "Matched against the segment before the first '/' in the model string."
         ),
     )
@@ -74,20 +62,6 @@ class Settings(BaseSettings):
     max_file_size: int = Field(default=250 * 1024, description="Per-file cap in bytes.")
     max_total_file_size: int = Field(default=1024 * 1024, description="Cumulative cap in bytes.")
 
-    # ── Helpers ──────────────────────────────────────────────
-
-    def resolve_model(self, name: str | None) -> str:
-        """Expand an alias to a full LiteLLM model string; pass through anything else."""
-        if not name:
-            name = self.model
-        if "/" in name:
-            return name
-        return self.model_aliases.get(name.lower(), name)
-
     @property
-    def resolved_model(self) -> str:
-        return self.resolve_model(self.model)
-
-    @property
-    def resolved_moderator_model(self) -> str:
-        return self.resolve_model(self.moderator_model or self.model)
+    def effective_moderator_model(self) -> str:
+        return self.moderator_model or self.model

@@ -51,7 +51,7 @@ class InstructorGateway:
 
     def _client_for(self, model: str):
         provider = model.split("/", 1)[0].lower()
-        if provider in self._settings.json_mode_prefixes:
+        if provider in self._settings.json_mode_providers:
             return self._json_client
         return self._tools_client
 
@@ -63,7 +63,6 @@ class InstructorGateway:
         system: str,
         user: str,
     ) -> T:
-        model = self._settings.resolve_model(model)
         logger.debug("LLM → model=%s schema=%s", model, response_model.__name__)
         result = self._client_for(model).chat.completions.create(
             model=model,

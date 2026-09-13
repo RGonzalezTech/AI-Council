@@ -9,7 +9,7 @@ Ground-up restructure for open-source release. **Not backward compatible** with 
 - Protocols for every seam: `LLMGateway`, `EventSink`, `SessionStore`, `ReportRenderer`, `PromptLibrary`.
 - `FakeGateway`, `MemorySessionStore`, `RecordingSink` for offline testing.
 - `pydantic-settings` configuration (`COUNCIL_*` env vars / `.env`), including `COUNCIL_MODERATOR_MODEL`, `COUNCIL_COUNCIL_SIZE`, `COUNCIL_SESSIONS_DIR`.
-- CLI: `--moderator-model`, `--size`, `--yes`, `--sessions-dir`, `--version`, `council models`; session ids accept unique prefixes.
+- CLI: `--moderator-model`, `--size`, `--yes`, `--sessions-dir`, `--version`; session ids accept unique prefixes.
 - Stalemate handling in `init` (previously only in `resume`); "leave as stalemate" option.
 - Objections keep their original text; narrowed concerns are recorded as `revisions`.
 - Proposed solutions record which resolution attempt produced them.
@@ -20,7 +20,7 @@ Ground-up restructure for open-source release. **Not backward compatible** with 
 - Sessions default to `~/.aicouncil/sessions` instead of `./sessions`.
 - `state.json` is now the complete, authoritative checkpoint; other files are projections.
 - Per-expert `model` is `None` by default and falls back to the session model (previously always populated).
-- Gemini alias uses the `gemini/` LiteLLM prefix (was `google/`).
+- Model aliases removed; `COUNCIL_MODEL` / `--model` take a LiteLLM model string. Default is `openrouter/deepseek/deepseek-v4-pro`.
 
 ### Fixed
 - `COUNCIL_MODEL` in `.env` was read before `load_dotenv()` ran and had no effect.

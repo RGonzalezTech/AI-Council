@@ -70,12 +70,11 @@ class IntakeService:
         files: list[FileReference] | None = None,
     ) -> CouncilState:
         s = self._settings
-        resolved_model = s.resolve_model(model)
-        resolved_mod = s.resolve_model(moderator_model or s.moderator_model or resolved_model)
+        expert_model = model or s.model
         state = CouncilState(
             original_premise=premise,
-            model=resolved_model,
-            moderator_model=resolved_mod,
+            model=expert_model,
+            moderator_model=moderator_model or s.moderator_model or expert_model,
             max_turns=max_turns or s.max_turns,
             max_resolution_turns=s.max_resolution_turns,
             file_references=files or [],

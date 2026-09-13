@@ -33,14 +33,13 @@ Copy `.env.example` to `.env` and add one provider key (OpenRouter, OpenAI, Anth
 ```bash
 council init "Should we migrate from REST to GraphQL?"
 council init "Refactor plan?" --file service.py --file ARCHITECTURE.md   # with reference material
-council init "..." --model gemini-pro --moderator-model gemini-flash     # cheaper moderator
+council init "..." --model gemini/gemini-2.5-pro --moderator-model gemini/gemini-2.5-flash
 council init "..." --size 7 --max-turns 20 --yes                         # bigger council, skip roster editing
 
 council list                 # saved sessions
 council resume [id]          # continue a crashed or stalemated session
 council show <id>            # current state
 council report <id>          # regenerate reports
-council models               # model aliases
 ```
 
 Sessions are stored under `~/.aicouncil/sessions/<id>/` (override with `--sessions-dir` or `COUNCIL_SESSIONS_DIR`). Each contains `final_report.md`, `debate_log.md`, the full `state.json`, and human-readable projections of every artifact.
@@ -51,7 +50,7 @@ Everything is a `COUNCIL_*` environment variable or `.env` entry; CLI flags over
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `COUNCIL_MODEL` | `deepseek` | Expert model — alias or LiteLLM string |
+| `COUNCIL_MODEL` | `openrouter/deepseek/deepseek-v4-pro` | Expert model — any [LiteLLM model string](https://docs.litellm.ai/docs/providers) |
 | `COUNCIL_MODERATOR_MODEL` | *(same as model)* | Moderator model; use something cheaper/faster |
 | `COUNCIL_COUNCIL_SIZE` | `5` | Experts to generate |
 | `COUNCIL_MAX_TURNS` | `15` | Review rounds before stalemate |

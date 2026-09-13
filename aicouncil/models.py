@@ -200,7 +200,7 @@ class CouncilState(BaseModel):
     max_turns: int = 15
     max_resolution_turns: int = 5
 
-    # LLM config — always fully-resolved LiteLLM strings, never aliases.
+    # LLM config — LiteLLM model strings.
     model: str = ""
     moderator_model: str = ""
 

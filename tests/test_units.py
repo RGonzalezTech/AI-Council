@@ -23,21 +23,21 @@ def test_bool_coercion(raw, expected):
 # ─── Settings ────────────────────────────────────────────────
 
 
-def test_settings_resolve_alias_and_passthrough():
-    s = Settings(model="gemini-pro", _env_file=None)  # type: ignore[call-arg]
-    assert s.resolved_model == "gemini/gemini-2.5-pro"
-    assert s.resolve_model("openrouter/x/y") == "openrouter/x/y"
-    assert s.resolve_model("unknown-alias") == "unknown-alias"
-    assert s.resolved_moderator_model == s.resolved_model
+def test_settings_defaults(monkeypatch):
+    monkeypatch.delenv("COUNCIL_MODEL", raising=False)
+    monkeypatch.delenv("COUNCIL_MODERATOR_MODEL", raising=False)
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.model == "openrouter/deepseek/deepseek-v4-pro"
+    assert s.effective_moderator_model == s.model
 
 
 def test_settings_from_env(monkeypatch):
-    monkeypatch.setenv("COUNCIL_MODEL", "deepseek-flash")
-    monkeypatch.setenv("COUNCIL_MODERATOR_MODEL", "gemini-flash")
+    monkeypatch.setenv("COUNCIL_MODEL", "a/b")
+    monkeypatch.setenv("COUNCIL_MODERATOR_MODEL", "c/d")
     monkeypatch.setenv("COUNCIL_MAX_TURNS", "3")
     s = Settings(_env_file=None)  # type: ignore[call-arg]
-    assert s.resolved_model == "openrouter/deepseek/deepseek-v4-flash"
-    assert s.resolved_moderator_model == "gemini/gemini-2.5-flash"
+    assert s.model == "a/b"
+    assert s.effective_moderator_model == "c/d"
     assert s.max_turns == 3
 
 

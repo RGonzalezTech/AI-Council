@@ -6,7 +6,6 @@ CLI entry point.
   council list              Show saved sessions
   council show <id>         Display a session's current state
   council report <id>       Regenerate reports for a session
-  council models            List model aliases
 """
 
 from __future__ import annotations
@@ -106,7 +105,7 @@ def init(
         list[Path] | None, typer.Option("--file", "-f", help="Reference file(s).")
     ] = None,
     model: Annotated[
-        str | None, typer.Option("--model", "-m", help="Expert model (alias or LiteLLM string).")
+        str | None, typer.Option("--model", "-m", help="LiteLLM model string for experts.")
     ] = None,
     moderator_model: Annotated[
         str | None, typer.Option("--moderator-model", help="Moderator model. Defaults to --model.")
@@ -154,7 +153,7 @@ def init(
             con,
             state.council,
             generate_member=lambda intent: council.intake.generate_member(state, intent),
-            model_aliases=settings.model_aliases,
+            default_model=state.model,
         )
         council.store.save(state)
 
@@ -240,19 +239,6 @@ def report(
     council = _council(_settings(sessions_dir), quiet=True)
     state = _load(council, session_id)
     _write_reports(council, state)
-
-
-@app.command()
-def models() -> None:
-    """List model aliases and the current defaults."""
-    s = Settings()
-    con.print(f"\n  [dim]Default expert model:[/]    {s.resolved_model}")
-    con.print(f"  [dim]Default moderator model:[/] {s.resolved_moderator_model}\n")
-    for alias, target in s.model_aliases.items():
-        con.print(f"  [bold magenta]{alias:<16}[/] → {target}")
-    con.print(
-        "\n  [dim]Any LiteLLM model string also works, e.g. openrouter/anthropic/claude-sonnet-4-5[/]\n"
-    )
 
 
 # ─── Shared flows ────────────────────────────────────────────

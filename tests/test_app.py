@@ -60,19 +60,17 @@ def test_load_reference_files_filters(tmp_path, settings):
 # ─── Council façade ──────────────────────────────────────────
 
 
-def test_new_session_resolves_models_and_summarizes_files(council, tmp_path, gateway):
+def test_new_session_sets_models_and_summarizes_files(council, tmp_path, gateway):
     f = tmp_path / "spec.md"
     f.write_text("spec", encoding="utf-8")
-    state = council.new_session(
-        "Idea", model="gemini-pro", moderator_model="gemini-flash", files=[f]
-    )
+    state = council.new_session("Idea", model="a/b", moderator_model="c/d", files=[f])
 
-    assert state.model == "gemini/gemini-2.5-pro"
-    assert state.moderator_model == "gemini/gemini-2.5-flash"
+    assert state.model == "a/b"
+    assert state.moderator_model == "c/d"
     assert state.context_summary == "ctx"
     assert council.load(state.idea_id[:8]).idea_id == state.idea_id
     summarize_call = next(c for c in gateway.calls if c["schema"] == "ContextSummaryResponse")
-    assert summarize_call["model"] == "gemini/gemini-2.5-flash"
+    assert summarize_call["model"] == "c/d"
 
 
 def test_moderator_defaults_to_expert_model(council):
@@ -134,11 +132,3 @@ def test_cli_version():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "aicouncil" in result.output
-
-
-def test_cli_models():
-    from aicouncil.cli import app
-
-    result = runner.invoke(app, ["models"])
-    assert result.exit_code == 0
-    assert "gemini-pro" in result.output
