@@ -42,13 +42,6 @@ class IntakeResponse(BaseModel):
     )
 
 
-class ContextSummaryResponse(BaseModel):
-    """Condensed summary of user-provided file references."""
-
-    summary: str = Field(description="Comprehensive summary of the reference materials")
-    key_details: list[str] = Field(description="Critical details extracted from the files")
-
-
 # ─── Draft Phase (Perspectives) ─────────────────────────────
 
 

@@ -20,7 +20,7 @@ from pathlib import Path
 
 from .engine import DebateEngine
 from .events import EventSink, NullSink
-from .intake import IntakeService, load_reference_files
+from .intake import IntakeService
 from .llm import CouncilLLM, InstructorGateway, LLMGateway, PromptLibrary
 from .models import CouncilState
 from .reports import MarkdownRenderer, ReportRenderer
@@ -58,17 +58,12 @@ class Council:
         model: str | None = None,
         moderator_model: str | None = None,
         max_turns: int | None = None,
-        files: list[Path] | None = None,
     ) -> CouncilState:
-        loaded = load_reference_files(files or [], self.settings)
-        for path, reason in loaded.skipped:
-            logger.warning("Skipped %s: %s", path, reason)
         state = self.intake.new_state(
             premise,
             model=model,
             moderator_model=moderator_model,
             max_turns=max_turns,
-            files=loaded.accepted,
         )
         self.store.save(state)
         return state

@@ -25,17 +25,6 @@ EXPERT_HEADER = "You are {role}.\n\n{system_prompt}\n\n"
 
 DEFAULT_PROMPTS: dict[str, Prompt] = {
     # ── Intake ────────────────────────────────────────────────
-    "summarize_files": Prompt(
-        system=(
-            "You are an expert analyst. Read the provided reference materials and "
-            "produce a comprehensive but concise summary. Extract all critical details — "
-            "key facts, decisions, constraints, relationships, requirements, and context — "
-            "that would be relevant to evaluating or building upon whatever this material "
-            "describes. Discard boilerplate and focus on substance. Do not assume the "
-            "content is technical; adapt your analysis to the domain of the materials."
-        ),
-        user="Reference Materials:\n{file_block}",
-    ),
     "generate_council": Prompt(
         system=(
             "You are an expert organizational strategist tasked with assembling the ideal "

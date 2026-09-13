@@ -1,21 +1,35 @@
-# Roadmap
+# ROADMAP
 
-Things worth building, roughly in order of value. Open an issue before starting a large one so we don't collide.
+Planned features and future directions for AI Council.
 
-## Next
+---
 
-- **Council presets** — save a roster (roles, prompts, per-expert models) to YAML and reuse it: `council preset save <name>`, `council init --preset <name>`. Ship a few built-ins (`startup`, `security-review`, `research`). The `IntakeService` seam already exists; this is mostly CLI and a small file format.
-- **Mid-debate intervention** — let the user inject a constraint ("also consider GDPR") between rounds. Model it as a decision-log entry authored by "User" so it flows through existing prompts.
-- **Rejection by the council** — today only the user can reject. Allow a deadlocked objector to formally veto when the objection is fundamental, ending the session as `rejected` rather than continuing.
+## External Data Access
 
-## Later
+Each debate agent should be able to back up its claims with external evidence.
+The original file-reference system (`--file` at intake, LLM-summarized into
+`context_summary`) was removed in the `refactor/solid` branch because it was
+out of scope — the focus is on the core debate engine and protocol contracts.
 
-- **Cost tracking** — LiteLLM exposes token usage; surface per-session cost in the report and a running total in the CLI.
-- **JSON / HTML report renderers** — the `ReportRenderer` protocol makes these additive.
-- **Streaming sink** — a WebSocket `EventSink` for a web front-end.
-- **Session migration tooling** — if the on-disk format changes post-1.0, provide `council migrate`.
+The replacement should be more powerful:
 
-## Not planned
+- **Per-agent evidence access**: agents can search the web or reference provided
+  documents *during debate*, not just at intake
+- **Web search**: agents query live sources to support or challenge claims
+- **File/dataset access**: agents can cite specific data, code, or documents
+- **Source attribution**: evidence comes with citations the moderator can verify
+- **Pluggable backends**: web search API, local RAG, vector store — protocol,
+  not hard-wired implementation
 
-- LLM-driven routing of the state machine. The rules are deterministic; keep them in Python.
-- Resolving multiple objections in one round. One-at-a-time is a deliberate simplification.
+The `context_summary` field on `CouncilState` and the `context_block` plumbing
+through `CouncilLLM` remain as inert hooks for this feature.
+
+---
+
+## Additional Ideas
+
+- **Streaming events**: real-time WebSocket/SSE event stream for UI frontends
+- **Custom expert personas**: user-defined expert profiles beyond generated ones
+- **Multi-turn evidence gathering**: agents can request more data mid-debate
+- **Debate transcripts**: structured timeline export (JSON/HTML) beyond Markdown
+- **Plugin system**: third-party prompt packs, domain-specific expert libraries

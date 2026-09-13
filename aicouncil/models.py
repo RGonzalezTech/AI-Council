@@ -102,61 +102,6 @@ class Objection(BaseModel):
         return self.status in ("resolved", "deadlocked", "overruled")
 
 
-# ─── File References ─────────────────────────────────────────
-
-
-SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
-    {
-        ".md",
-        ".txt",
-        ".rst",
-        ".py",
-        ".js",
-        ".ts",
-        ".jsx",
-        ".tsx",
-        ".json",
-        ".yaml",
-        ".yml",
-        ".toml",
-        ".csv",
-        ".html",
-        ".css",
-        ".scss",
-        ".go",
-        ".rs",
-        ".java",
-        ".c",
-        ".cpp",
-        ".h",
-        ".hpp",
-        ".sh",
-        ".bash",
-        ".sql",
-        ".xml",
-        ".env",
-        ".cfg",
-        ".ini",
-        ".conf",
-        ".rb",
-        ".php",
-        ".swift",
-        ".kt",
-        ".gdscript",
-        ".gd",
-    }
-)
-
-
-class FileReference(BaseModel):
-    """A user-provided file included as context for the council."""
-
-    path: str
-    alias: str | None = None
-    content: str = ""
-    size_bytes: int = 0
-
-
 # ─── Root State Object ───────────────────────────────────────
 
 
@@ -175,7 +120,6 @@ class CouncilState(BaseModel):
 
     # Input
     original_premise: str = ""
-    file_references: list[FileReference] = Field(default_factory=list)
     context_summary: str = ""
 
     # Council

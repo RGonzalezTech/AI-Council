@@ -16,23 +16,10 @@ One model gives you one perspective. Blind spots surface only when viewpoints co
 4. **Debate** — every expert reviews. Objections are voted on, triaged to the right experts, resolved through proposed solutions, and the proposal is rewritten. A decision log stops the council from relitigating what it already settled.
 5. **Report** — an executive summary plus a full transcript: every objection, solution, diff, and vote.
 
-## Install
-
-Requires Python 3.11+.
-
-```bash
-pip install aicouncil
-# or from source
-git clone https://github.com/RGonzalezTech/AI-Council.git && cd AI-Council && pip install -e .
-```
-
-Copy `.env.example` to `.env` and add one provider key (OpenRouter, OpenAI, Anthropic, Gemini, or [anything LiteLLM supports](https://docs.litellm.ai/docs/providers)).
-
 ## Usage
 
 ```bash
 council init "Should we migrate from REST to GraphQL?"
-council init "Refactor plan?" --file service.py --file ARCHITECTURE.md   # with reference material
 council init "..." --model gemini/gemini-2.5-pro --moderator-model gemini/gemini-2.5-flash
 council init "..." --size 7 --max-turns 20 --yes                         # bigger council, skip roster editing
 
@@ -46,7 +33,7 @@ Sessions are stored under `~/.aicouncil/sessions/<id>/` (override with `--sessio
 
 ### Configuration
 
-Everything is a `COUNCIL_*` environment variable or `.env` entry; CLI flags override.
+Everything is a `COUNCIL_*` environment variable or `.env` entry; CLI flags override. Create a `.env` file with your provider key (e.g. `OPENROUTER_API_KEY=sk-...`).
 
 | Setting | Default | Purpose |
 |---|---|---|
@@ -60,47 +47,6 @@ Everything is a `COUNCIL_*` environment variable or `.env` entry; CLI flags over
 
 Per-expert model overrides are available in the roster editor, so you can run a cheap model for routine reviewers and an expensive one for the devil's advocate.
 
-## Use it as a library
-
-The engine has no dependency on the terminal. Every seam is a protocol you can replace.
-
-```python
-from aicouncil import Council, Settings
-
-council = Council(Settings(model="openrouter/anthropic/claude-sonnet-4-5"))
-state = council.new_session("Should we open-source our billing service?")
-state.council = council.intake.generate_council(state)
-state = council.run(state)
-
-print(state.proposal_executive_summary)
-for doc in council.render_reports(state):
-    print(doc.filename, len(doc.content))
-```
-
-Swap any piece:
-
-```python
-from aicouncil import Council, RecordingSink, MemorySessionStore, PromptLibrary, Prompt
-
-council = Council(
-    store=MemorySessionStore(),  # SessionStore: anything that can save/load/list
-    sink=RecordingSink(),  # EventSink: receive every engine event
-    prompts=PromptLibrary(
-        overrides={  # replace any prompt without touching engine code
-            "expert_review": Prompt(system="...", user="..."),
-        }
-    ),
-)
-```
-
-| Extension point | Protocol | Default | Notes |
-|---|---|---|---|
-| Model provider | `LLMGateway` | `InstructorGateway` (LiteLLM + Instructor) | `FakeGateway` ships for tests |
-| Prompts | `PromptLibrary` | `DEFAULT_PROMPTS` | Override by name |
-| Persistence | `SessionStore` | `FileSessionStore` | `MemorySessionStore` for embedding/tests |
-| Output | `EventSink` | `NullSink` (CLI uses `RichSink`) | `RecordingSink`, `MultiSink` included |
-| Reports | `ReportRenderer` | `MarkdownRenderer` | Return any number of documents |
-
 ## Architecture
 
 ```
@@ -110,7 +56,7 @@ aicouncil/
 ├── models.py        CouncilState and friends (pure data)
 ├── schemas.py       Pydantic response contracts enforced on every LLM call
 ├── settings.py      pydantic-settings config
-├── intake.py        Pre-debate: file loading, council generation
+├── intake.py        Pre-debate: council generation
 ├── app.py           Council façade / composition root
 ├── cli.py           Typer commands
 ├── llm/             LLMGateway protocol, Instructor impl, FakeGateway, prompts, typed calls
@@ -137,7 +83,7 @@ Design notes that matter if you're extending it:
 ## Development
 
 ```bash
-pip install -e ".[dev]"
+uv sync
 pytest            # unit tests run against FakeGateway — no API key needed
 ruff check . && ruff format --check .
 mypy aicouncil

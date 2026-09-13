@@ -8,9 +8,8 @@ the console or the filesystem.
 
 from __future__ import annotations
 
-from ..models import CouncilState, ExpertMember, FileReference, Objection
+from ..models import CouncilState, ExpertMember, Objection
 from ..schemas import (
-    ContextSummaryResponse,
     EvaluationResponse,
     ExpertSuggestion,
     ExpertVerdict,
@@ -49,10 +48,6 @@ class CouncilLLM:
         )
 
     # ── Intake ────────────────────────────────────────────────
-
-    def summarize_files(self, files: list[FileReference], *, model: str) -> ContextSummaryResponse:
-        file_block = "".join(f"\n--- {f.alias or f.path} ---\n{f.content}\n" for f in files)
-        return self._call("summarize_files", model, ContextSummaryResponse, file_block=file_block)
 
     def generate_council(
         self, premise: str, context_summary: str, *, council_size: int, model: str

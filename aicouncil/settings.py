@@ -58,10 +58,6 @@ class Settings(BaseSettings):
         description="Where session artifacts are written.",
     )
 
-    # ── Reference files ──────────────────────────────────────
-    max_file_size: int = Field(default=250 * 1024, description="Per-file cap in bytes.")
-    max_total_file_size: int = Field(default=1024 * 1024, description="Cumulative cap in bytes.")
-
     @property
     def effective_moderator_model(self) -> str:
         return self.moderator_model or self.model

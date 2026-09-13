@@ -101,9 +101,6 @@ def _load(council: Council, idea_id: str) -> CouncilState:
 @app.command()
 def init(
     premise: Annotated[str, typer.Argument(help="The idea or question to evaluate.")],
-    files: Annotated[
-        list[Path] | None, typer.Option("--file", "-f", help="Reference file(s).")
-    ] = None,
     model: Annotated[
         str | None, typer.Option("--model", "-m", help="LiteLLM model string for experts.")
     ] = None,
@@ -135,11 +132,8 @@ def init(
             model=model,
             moderator_model=moderator_model,
             max_turns=max_turns,
-            files=files,
         )
     _setup_logging(council, state.idea_id, verbose)
-    if state.file_references:
-        con.print(f"  [dim]Loaded {len(state.file_references)} reference file(s)[/]")
 
     ui.phase(con, "Phase 1: Council Assembly")
     with _guard(state), con.status("[bold cyan]Assembling council...[/]"):
