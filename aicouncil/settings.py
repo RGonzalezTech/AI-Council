@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         description="Model for Moderator calls. Falls back to `model` when unset.",
     )
     json_mode_providers: tuple[str, ...] = Field(
-        default=("openrouter", "gemini", "deepseek", "google"),
+        default=("openrouter", "gemini", "google"),
         description=(
             "Providers that need Instructor JSON mode instead of tool calling. "
             "Matched against the segment before the first '/' in the model string."
