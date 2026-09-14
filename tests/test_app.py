@@ -13,9 +13,7 @@ runner = CliRunner()
 
 @pytest.fixture
 def settings(tmp_path) -> Settings:
-    return Settings(
-        model="test/model", sessions_dir=tmp_path / "sessions", _env_file=None
-    )  # type: ignore[call-arg]
+    return Settings(model="test/model", sessions_dir=tmp_path / "sessions", _env_file=None)  # type: ignore[call-arg]
 
 
 @pytest.fixture
