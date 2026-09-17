@@ -6,6 +6,29 @@ Multi-agent LLM debate for stress-testing ideas. Pitch a question; a council of 
 council init "What's the right architecture for a self-hosted multiplayer game server?"
 ```
 
+## Setup
+
+```bash
+git clone https://github.com/RGonzalezTech/AI-Council.git
+cd AI-Council
+git pull
+pip install -e .
+cp .env.example .env   # then edit .env and add your API key
+```
+
+AI Council uses [LiteLLM](https://docs.litellm.ai/docs/providers) under the hood — any provider works. The quickest path is an [OpenRouter](https://openrouter.ai/) key:
+
+```bash
+# .env file
+OPENROUTER_API_KEY=sk-or-v1-...
+```
+
+Verify it's working:
+
+```bash
+council --version
+```
+
 ## Why
 
 One model gives you one perspective. Blind spots surface only when viewpoints collide: the security lead notices what the product manager missed, the economist flags what the engineer never considered. AI Council runs that collision as a structured, auditable process:
@@ -71,6 +94,21 @@ intake ─► drafting ─► debating ─► approved
                           ▼  │ extend
                        stalemate ─► rejected
 ```
+
+### Extension points
+
+Everything is a protocol. Swap any piece by implementing one interface and passing it to `Council()`:
+
+| To… | Implement | Wire it |
+|------|-----------|---------|
+| Use a different LLM provider or add retry/caching | `LLMGateway` | `Council(gateway=...)` |
+| Render the debate in a web UI, logs, or Slack | `EventSink` | `Council(sink=...)` |
+| Store sessions in a database instead of files | `SessionStore` | `Council(store=...)` |
+| Output the report as HTML, PDF, or JSON | `ReportRenderer` | `Council(renderer=...)` |
+| Tune what the LLMs are told (system prompts, instructions) | `Prompt` | `PromptLibrary(overrides={...})` |
+| Add a new LLM call type | Schema in `schemas.py` + prompt in `prompts.py` + method on `CouncilLLM` | Register in `FakeGateway` for tests |
+
+The engine (`engine.py`) stays untouched through all of this — it only speaks to the protocols.
 
 Design notes that matter if you're extending it:
 
