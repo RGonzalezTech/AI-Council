@@ -1,24 +1,25 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 *.egg-info/
 dist/
 build/
-*.egg
+.coverage
+coverage.xml
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Environment
 .env
 .venv/
 venv/
-env/
 
 # IDE
 .vscode/
 .idea/
 *.swp
-*.swo
 
-# Project
+# Project — legacy in-repo session dir (sessions now live in ~/.aicouncil by default)
 sessions/
-reports/
+.smoke/

@@ -10,6 +10,17 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 
 
+def _coerce_bool(v: object) -> object:
+    """Accept string literals emitted by some LLMs (e.g. "true"/"false")."""
+    if isinstance(v, str):
+        lowered = v.strip().lower()
+        if lowered in ("true", "yes"):
+            return True
+        if lowered in ("false", "no"):
+            return False
+    return v
+
+
 # ─── Intake Phase ────────────────────────────────────────────
 
 
@@ -27,18 +38,7 @@ class IntakeResponse(BaseModel):
     """The full council recommendation from the Intake Router."""
 
     council: list[ExpertSuggestion] = Field(
-        description="Exactly 5 recommended council members"
-    )
-
-
-class ContextSummaryResponse(BaseModel):
-    """Condensed summary of user-provided file references."""
-
-    summary: str = Field(
-        description="Comprehensive summary of the reference materials"
-    )
-    key_details: list[str] = Field(
-        description="Critical details extracted from the files"
+        description="The recommended council members (exactly the number requested)"
     )
 
 
@@ -48,12 +48,8 @@ class ContextSummaryResponse(BaseModel):
 class PerspectiveResponse(BaseModel):
     """An expert's initial, isolated perspective on the raw idea."""
 
-    perspective: str = Field(
-        description="Detailed domain-specific analysis and recommendations"
-    )
-    key_concerns: list[str] = Field(
-        description="Top 3-5 concerns from this expert's domain"
-    )
+    perspective: str = Field(description="Detailed domain-specific analysis and recommendations")
+    key_concerns: list[str] = Field(description="Top 3-5 concerns from this expert's domain")
     suggested_approach: str = Field(
         description="High-level recommended approach for implementation"
     )
@@ -62,9 +58,7 @@ class PerspectiveResponse(BaseModel):
 class FirstDraftResponse(BaseModel):
     """The Moderator's compiled first draft from all perspectives."""
 
-    proposal: str = Field(
-        description="Comprehensive, well-structured first draft proposal"
-    )
+    proposal: str = Field(description="Comprehensive, well-structured first draft proposal")
     key_decisions: list[str] = Field(
         description="Decisions made while synthesizing (for the decision log)"
     )
@@ -90,16 +84,7 @@ class ExpertVerdict(BaseModel):
     )
     reasoning: str = Field(description="Brief explanation of the decision")
 
-    @field_validator("approved", mode="before")
-    @classmethod
-    def coerce_bool(cls, v: object) -> bool:
-        """Accept string literals emitted by some LLMs (e.g. \"true\"/\"false\")."""
-        if isinstance(v, str):
-            if v.lower() == "true":
-                return True
-            if v.lower() == "false":
-                return False
-        return v
+    _coerce = field_validator("approved", mode="before")(_coerce_bool)
 
 
 # ─── Objection Resolution ───────────────────────────────────
@@ -117,9 +102,7 @@ class TriageResponse(BaseModel):
 class SolutionResponse(BaseModel):
     """An expert's proposed solution to an objection."""
 
-    solution: str = Field(
-        description="Specific, actionable solution from this expert's domain"
-    )
+    solution: str = Field(description="Specific, actionable solution from this expert's domain")
     trade_offs: str = Field(
         default="",
         description="Any trade-offs or caveats with this solution",
@@ -146,16 +129,7 @@ class EvaluationResponse(BaseModel):
         description="If not satisfied, what specifically is still wrong",
     )
 
-    @field_validator("satisfied", mode="before")
-    @classmethod
-    def coerce_bool(cls, v: object) -> bool:
-        """Accept string literals emitted by some LLMs (e.g. \"true\"/\"false\")."""
-        if isinstance(v, str):
-            if v.lower() == "true":
-                return True
-            if v.lower() == "false":
-                return False
-        return v
+    _coerce = field_validator("satisfied", mode="before")(_coerce_bool)
 
 
 class ResolutionJudgment(BaseModel):
@@ -202,4 +176,3 @@ class ProposalSummaryResponse(BaseModel):
             "Written for a reader who has not seen the full proposal. Plain prose, no bullet points."
         )
     )
-
