@@ -6,6 +6,10 @@ Multi-agent LLM debate for stress-testing ideas. Pitch a question; a council of 
 council init "What's the right architecture for a self-hosted multiplayer game server?"
 ```
 
+<a href="https://youtu.be/KmzeY3GDGxA">
+  <img src="https://img.youtube.com/vi/KmzeY3GDGxA/maxresdefault.jpg" alt="Run your own AI debates on your machine" width="480">
+</a>
+
 ## Setup
 
 ```bash
